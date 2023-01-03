@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Options;
-using Offices.WebApi.DatabaseSettings;
+using Offices.Application.DatabaseSettings;
 
 var builder = WebApplication.CreateBuilder(args);
 var services = builder.Services;
