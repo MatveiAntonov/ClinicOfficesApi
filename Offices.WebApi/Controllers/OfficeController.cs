@@ -15,15 +15,19 @@ public class OfficeController : ControllerBase
 {
     private readonly IOfficeRepository _officeRepository;
     private readonly IMapper _mapper;
-    public OfficeController(IOfficeRepository officeRepository, IMapper mapper)
+    private readonly ILogger<OfficeController> _logger;
+    public OfficeController(IOfficeRepository officeRepository, IMapper mapper, ILogger<OfficeController> logger)
     {
         _officeRepository = officeRepository;
         _mapper = mapper;
+        _logger = logger;
     }
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<OfficeDto>>> GetAll()
     {
+        _logger.LogInformation("Fetching all office models from the storage");
+
         var offices = await _officeRepository.GetAllOffices(default(CancellationToken));
         if (offices is not null)
         {
@@ -36,13 +40,17 @@ public class OfficeController : ControllerBase
         }
         else
         {
+            _logger.LogInformation("Storage is empty");
+
             return NoContent();
         }
     }
 
     [HttpGet("{id}")]
-    public async Task<ActionResult<OfficeDto>> GetService(string id)
+    public async Task<ActionResult<OfficeDto>> GetOffice(string id)
     {
+        _logger.LogInformation($"Fetching office model with id: {id} from the storage");
+
         var office = await _officeRepository.GetOffice(id, default(CancellationToken));
         if (office is not null)
         {
@@ -51,13 +59,21 @@ public class OfficeController : ControllerBase
         }
         else
         {
+            _logger.LogInformation($"No office with id: {id} in the storage");
+
             return BadRequest();
         }
     }
 
     [HttpPost]
-    public async Task<ActionResult<OfficeDto>> CreateService([FromForm] OfficeDto officeDto)
+    public async Task<ActionResult<OfficeDto>> CreateOffice([FromForm] OfficeDto officeDto)
     {
+        _logger.LogInformation($"Posting new office model to the storage");
+
+        if (officeDto == null)
+            return BadRequest();
+
+
         var officeEntity = _mapper.Map<Office>(officeDto);
 
         var office = await _officeRepository.CreateOffice(officeEntity, default(CancellationToken));
@@ -68,13 +84,20 @@ public class OfficeController : ControllerBase
         }
         else
         {
+            _logger.LogError($"Something went wrong while adding new office model to the storage");
+
             return BadRequest();
         }
     }
 
     [HttpPut]
-    public async Task<ActionResult<OfficeDto>> UpdateService([FromForm] OfficeDto officeDto)
+    public async Task<ActionResult<OfficeDto>> UpdateOffice([FromForm] OfficeDto officeDto)
     {
+        _logger.LogInformation($"Updating office model with id: {officeDto.Id} in the storage");
+
+        if (officeDto == null)
+            return BadRequest();
+
         var officeEntity = _mapper.Map<Office>(officeDto);
 
         var office = await _officeRepository.UpdateOffice(officeEntity, default(CancellationToken));
@@ -85,21 +108,31 @@ public class OfficeController : ControllerBase
         }
         else
         {
+            _logger.LogError($"Something went wrong while updating office model in the storage");
+
             return BadRequest();
         }
     }
 
     [HttpDelete("{id}")]
-    public async Task<ActionResult<OfficeDto>> DeleteService(string id)
+    public async Task<ActionResult<OfficeDto>> DeleteOffice(string id)
     {
-        var service = await _officeRepository.DeleteOffice(id, default(CancellationToken));
-        if (service is not null)
+        _logger.LogInformation($"Deleting office model with id: {id} in the storage");
+
+        if (_officeRepository.GetOffice(id, default(CancellationToken)) == null)
         {
-            var serviceResult = _mapper.Map<OfficeDto>(service);
-            return Ok(service);
+            return BadRequest();
+        };
+
+        var service = await _officeRepository.DeleteOffice(id, default(CancellationToken));
+        if (service is null)
+        {
+            return Ok(id);
         }
         else
         {
+            _logger.LogError($"Something went wrong while deleting office model from the storage");
+
             return BadRequest();
         }
     }
