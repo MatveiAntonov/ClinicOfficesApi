@@ -8,7 +8,8 @@ namespace Offices.Application.DatabaseSettings;
 
 public interface IOfficesDatabaseSettings
 {
-    public string DatabaseCollectionName { get; set; }
+    public string OfficeCollectionName { get; set; }
+    public string PhotoCollectionName { get; set; }
     public string ConnectionString { get; set; }
-    public string DatabaseName { get; set; }
+    public string OfficeDatabaseName { get; set; }
 }
