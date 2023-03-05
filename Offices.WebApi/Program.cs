@@ -1,8 +1,12 @@
+using Events;
+using MassTransit;
 using Microsoft.Extensions.Options;
 using Offices.Application.DatabaseSettings;
 using Offices.Application.Interfaces;
 using Offices.Application.Repositories;
+using Offices.Persistence.Repositories;
 using Offices.WebApi.Mappings;
+using Photos.Application.Interfaces;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,6 +17,23 @@ var logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
     .CreateLogger();
 builder.Logging.AddSerilog(logger);
+
+services.AddScoped<IPhotoRepository, PhotoRepository>();
+
+builder.Services.AddMassTransit(x =>
+{
+	x.AddRequestClient<PhotoAdded>();
+
+	x.UsingRabbitMq((context, cfg) =>
+	{
+		cfg.Host("rabbit-mq", "/", h =>
+		{
+			h.Username("guest");
+			h.Password("guest");
+		});
+		cfg.ConfigureEndpoints(context);
+	});
+});
 
 services.AddControllers();
 
@@ -31,7 +52,9 @@ services.Configure<OfficesDatabaseSettings>(
 
 services.AddSingleton<IOfficesDatabaseSettings>(provider =>
         provider.GetRequiredService<IOptions<OfficesDatabaseSettings>>().Value);
+
 services.AddScoped<IOfficeRepository, OfficeRepository>();
+services.AddScoped<IPhotoRepository, PhotoRepository>();
 
 services.AddAutoMapper(typeof(MappingProfile));
 
