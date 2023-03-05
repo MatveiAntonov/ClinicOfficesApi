@@ -1,9 +1,14 @@
 ﻿using AutoMapper;
+using Events;
+using MassTransit;
+using MassTransit.Clients;
+using MassTransit.Transports;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Offices.Application.Interfaces;
 using Offices.Domain.Entities;
 using Offices.WebApi.Models;
+using Photos.Application.Interfaces;
 
 namespace Offices.WebApi.Controllers;
 
@@ -14,14 +19,21 @@ namespace Offices.WebApi.Controllers;
 public class OfficeController : ControllerBase
 {
     private readonly IOfficeRepository _officeRepository;
+    private readonly IPhotoRepository _photoRepository;
     private readonly IMapper _mapper;
     private readonly ILogger<OfficeController> _logger;
-    public OfficeController(IOfficeRepository officeRepository, IMapper mapper, ILogger<OfficeController> logger)
+	private readonly IRequestClient<PhotoAdded> _requestClient;
+
+
+	public OfficeController(IOfficeRepository officeRepository, IPhotoRepository photoRepository, IMapper mapper, ILogger<OfficeController> logger,
+		IRequestClient<PhotoAdded> requestClient)
     {
         _officeRepository = officeRepository;
+        _photoRepository = photoRepository;
         _mapper = mapper;
         _logger = logger;
-    }
+		_requestClient = requestClient;
+	}
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<OfficeDto>>> GetAll()
@@ -66,6 +78,7 @@ public class OfficeController : ControllerBase
     }
 
     [HttpPost]
+    //[Authorize(Roles = "Receptionist")]
     public async Task<ActionResult<OfficeDto>> CreateOffice([FromForm] OfficeDto officeDto)
     {
         _logger.LogInformation($"Posting new office model to the storage");
@@ -76,7 +89,37 @@ public class OfficeController : ControllerBase
 
         var officeEntity = _mapper.Map<Office>(officeDto);
 
-        var office = await _officeRepository.CreateOffice(officeEntity, default(CancellationToken));
+		byte[] photoDto = { };
+
+		using (var ms = new MemoryStream())
+		{
+			officeDto.PhotoBytes.CopyTo(ms);
+			photoDto = ms.ToArray();
+		}
+
+		var photoRequest = new PhotoAdded
+		{
+			PhotoName = officeDto.PhotoBytes.FileName,
+			PhotoData = photoDto
+		};
+
+		var photoResponse = await _requestClient.GetResponse<PhotoAddedResponse>(photoRequest);
+
+		if (photoResponse != null)
+        {
+			var photo = new Photo
+			{
+				Id = photoResponse.Message.Id,
+				PhotoUrl = photoResponse.Message.PhotoUrl,
+				PhotoName = photoResponse.Message.PhotoName
+			};
+
+			await _photoRepository.CreatePhoto(photo, default(CancellationToken));
+
+            officeEntity.PhotoId = photo.Id;
+		}
+
+		var office = await _officeRepository.CreateOffice(officeEntity, default(CancellationToken));
         if (office is not null)
         {
             var officeReturn = _mapper.Map<OfficeDto>(office);
@@ -91,6 +134,7 @@ public class OfficeController : ControllerBase
     }
 
     [HttpPut]
+    //[Authorize(Roles = "Receptionist")]
     public async Task<ActionResult<OfficeDto>> UpdateOffice([FromForm] OfficeDto officeDto)
     {
         _logger.LogInformation($"Updating office model with id: {officeDto.Id} in the storage");
@@ -115,6 +159,7 @@ public class OfficeController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    //[Authorize(Roles = "Receptionist")]
     public async Task<ActionResult<OfficeDto>> DeleteOffice(string id)
     {
         _logger.LogInformation($"Deleting office model with id: {id} in the storage");
