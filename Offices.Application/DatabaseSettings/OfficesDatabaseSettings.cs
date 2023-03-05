@@ -2,7 +2,9 @@
 
 public class OfficesDatabaseSettings : IOfficesDatabaseSettings
 {
-    public string DatabaseCollectionName { get; set; } = String.Empty;
+    public string OfficeCollectionName { get; set; } = String.Empty;
+    public string PhotoCollectionName { get; set; } = String.Empty;
     public string ConnectionString { get; set; } = String.Empty;
-    public string DatabaseName { get; set; } = String.Empty;
+    public string OfficeDatabaseName { get; set; } = String.Empty;
 }
+
